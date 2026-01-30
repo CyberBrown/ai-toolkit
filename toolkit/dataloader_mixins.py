@@ -16,7 +16,10 @@ from safetensors.torch import load_file, save_file
 from tqdm import tqdm
 from transformers import CLIPImageProcessor, CLIPVisionModelWithProjection, SiglipImageProcessor
 
-from toolkit.audio.preserve_pitch import time_stretch_preserve_pitch
+try:
+    from toolkit.audio.preserve_pitch import time_stretch_preserve_pitch
+except ImportError:
+    time_stretch_preserve_pitch = None
 from toolkit.basic import flush, value_map
 from toolkit.buckets import get_bucket_for_image_size, get_resolution
 from toolkit.config_modules import ControlTypes

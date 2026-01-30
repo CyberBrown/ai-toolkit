@@ -1,0 +1,77 @@
+version: "3.8"
+
+services:
+  train:
+    image: nvcr.io/nvidia/pytorch:25.12-py3
+    container_name: ai-toolkit-training
+    working_dir: /workspace/ai-toolkit
+    volumes:
+      # AI Toolkit code
+      - ./:/workspace/ai-toolkit
+      # HuggingFace cache for model downloads
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      # Dataset (set DATASET_PATH env var or default to ./dataset)
+      - ${DATASET_PATH:-./dataset}:/workspace/dataset
+      # Output
+      - ./output:/workspace/ai-toolkit/output
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    shm_size: '16gb'
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - TORCH_CUDA_ARCH_LIST=10.0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: >
+      bash -c "
+        set -e &&
+        apt-get update && apt-get install -y libgl1 libglib2.0-0t64 libopenblas-dev --no-install-recommends &&
+        pip install -q -r requirements_nodeps.txt &&
+        python run.py ${CONFIG_FILE:-config/train_config.yaml}
+      "
+    tty: true
+    stdin_open: true
+
+  ui:
+    image: node:22-slim
+    container_name: ai-toolkit-ui
+    working_dir: /app
+    volumes:
+      # UI code
+      - ./ui:/app
+      # AI Toolkit root (for configs, output, etc.)
+      - ./:/workspace/ai-toolkit
+      # Persist node_modules
+      - ai-toolkit-ui-node-modules:/app/node_modules
+    ports:
+      - "3001:3000"
+    environment:
+      - TOOLKIT_PATH=/workspace/ai-toolkit
+      - TOOLKIT_ROOT=/workspace/ai-toolkit
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: >
+      bash -c "
+        apt-get update && apt-get install -y openssl python3 make g++ --no-install-recommends &&
+        npm install &&
+        npx prisma generate &&
+        npx prisma db push &&
+        npm run dev
+      "
+    tty: true
+    stdin_open: true
+
+volumes:
+  ai-toolkit-ui-node-modules:

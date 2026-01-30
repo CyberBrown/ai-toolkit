@@ -3,7 +3,10 @@ import os
 from typing import List, Optional
 
 import torch
-import torchaudio
+try:
+    import torchaudio
+except ImportError:
+    torchaudio = None
 from transformers import Gemma3Config
 import yaml
 from toolkit.config_modules import GenerateImageConfig, ModelConfig
@@ -144,6 +147,8 @@ class AudioProcessor(torch.nn.Module):
         n_fft: int,
     ) -> None:
         super().__init__()
+        if torchaudio is None:
+            raise ImportError("torchaudio is required for audio processing")
         self.sample_rate = sample_rate
         self.mel_transform = torchaudio.transforms.MelSpectrogram(
             sample_rate=sample_rate,
