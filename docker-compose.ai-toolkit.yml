@@ -22,6 +22,15 @@ services:
     environment:
       - HF_HOME=/root/.cache/huggingface
       - TORCH_CUDA_ARCH_LIST=10.0
+      # Cap CPU thread pools: on the 20-core Grace box the training-loop startup
+      # was spinning 63 threads at 100%% CPU / 0%% GPU and never reaching step 1.
+      - OMP_NUM_THREADS=8
+      - MKL_NUM_THREADS=8
+      - OPENBLAS_NUM_THREADS=8
+      - NUMEXPR_NUM_THREADS=8
+      - TOKENIZERS_PARALLELISM=false
+    cap_add:
+      - SYS_PTRACE          # allow py-spy to dump the stack if it still hangs
     deploy:
       resources:
         reservations:
