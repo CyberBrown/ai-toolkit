@@ -12,6 +12,8 @@ services:
       - ~/.cache/huggingface:/root/.cache/huggingface
       # Dataset (set DATASET_PATH env var or default to ./dataset)
       - ${DATASET_PATH:-./dataset}:/workspace/dataset
+      # Local model checkpoints (ComfyUI's krea2 bf16 checkpoints, reference key naming)
+      - /home/chris/ComfyUI/models/diffusion_models:/workspace/models:ro
       # Output
       - ./output:/workspace/ai-toolkit/output
     ipc: host

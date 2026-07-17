@@ -34,7 +34,7 @@ def get_all_extensions() -> List[Extension]:
     for sub_dir in extension_folders:
         extensions_dir = os.path.join(TOOLKIT_ROOT, sub_dir)
         for (_, name, _) in pkgutil.iter_modules([extensions_dir]):
-            # try:
+            try:
                 # Import the module
                 module = importlib.import_module(f"{sub_dir}.{name}")
                 # Get the value of the AI_TOOLKIT_EXTENSIONS variable
@@ -43,8 +43,11 @@ def get_all_extensions() -> List[Extension]:
                 if isinstance(extensions, list):
                     # Iterate over the list and add the classes to the main list
                     all_extension_classes.extend(extensions)
-            # except ImportError as e:
-            #     print(f"Failed to import the {name} module. Error: {str(e)}")
+            except Exception as e:
+                # Optional deps (torchaudio, bitsandbytes CUDA binaries, ...) are
+                # missing on some platforms (e.g. aarch64/GB10); skip those
+                # extensions instead of failing every job that doesn't use them.
+                print(f"Skipping extension {sub_dir}.{name}: {type(e).__name__}: {e}")
 
     return all_extension_classes
 
@@ -53,5 +56,10 @@ def get_all_extensions_process_dict():
     all_extensions = get_all_extensions()
     process_dict = {}
     for extension in all_extensions:
-        process_dict[extension.uid] = extension.get_process()
+        try:
+            process_dict[extension.uid] = extension.get_process()
+        except Exception as e:
+            # get_process() imports lazily; same optional-dep story as above
+            # (e.g. the ACE-Step captioner imports torchaudio).
+            print(f"Skipping extension process {extension.uid}: {type(e).__name__}: {e}")
     return process_dict
