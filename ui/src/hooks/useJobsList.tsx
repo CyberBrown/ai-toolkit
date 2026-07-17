@@ -1,17 +1,37 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Job } from '@prisma/client';
 import { apiClient } from '@/utils/api';
 
-export default function useJobsList(onlyActive = false, reloadInterval: null | number = null) {
+type UseJobsListProps = {
+  onlyActive?: boolean;
+  reloadInterval?: number | null;
+  job_type?: string | null;
+};
+
+export default function useJobsList({
+  onlyActive = false,
+  reloadInterval = null,
+  job_type = null,
+}: UseJobsListProps = {}) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const isFetchingRef = useRef(false);
 
   const refreshJobs = () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setStatus('loading');
+    const params: Record<string, string> = {};
+    if (job_type) {
+      params.job_type = job_type;
+    }
+    if (onlyActive) {
+      params.only_active = 'true';
+    }
     apiClient
-      .get('/api/jobs')
+      .get('/api/jobs', { params })
       .then(res => res.data)
       .then(data => {
         console.log('Jobs:', data);
@@ -19,9 +39,6 @@ export default function useJobsList(onlyActive = false, reloadInterval: null | n
           console.log('Error fetching jobs:', data.error);
           setStatus('error');
         } else {
-          if (onlyActive) {
-            data.jobs = data.jobs.filter((job: Job) => ['running', 'queued', 'stopping'].includes(job.status));
-          }
           setJobs(data.jobs);
           setStatus('success');
         }
@@ -29,6 +46,9 @@ export default function useJobsList(onlyActive = false, reloadInterval: null | n
       .catch(error => {
         console.error('Error fetching jobs:', error);
         setStatus('error');
+      })
+      .finally(() => {
+        isFetchingRef.current = false;
       });
   };
   useEffect(() => {
