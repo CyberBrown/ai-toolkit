@@ -300,8 +300,11 @@ const startAndWatchJob = (job: Job) => {
           stdio: ['ignore', logFd, logFd], // don't tie stdio to parent; log fd passed as stdout and stderr
         });
       } else {
-        // For non-Windows platforms, fully detach and ignore stdio so it survives daemon-like
-        subprocess = spawn(pythonPath, args, {
+        // For non-Windows platforms, fully detach and ignore stdio so it survives daemon-like.
+        // AITK_JOB_LAUNCHER replaces the interpreter (it receives the same args), e.g. to run
+        // the job in a container instead of the UI's own python.
+        const launcher = process.env.AITK_JOB_LAUNCHER;
+        subprocess = spawn(launcher || pythonPath, args, {
           detached: true,
           stdio: ['ignore', logFd, logFd], // don't tie stdio to parent; log fd passed as stdout and stderr
           env: {

@@ -1,0 +1,13 @@
+[Unit]
+Description=ai-toolkit web UI (jobs launched via ui_job_spark.sh -> train_spark.sh)
+
+[Service]
+WorkingDirectory=/home/chris/projects/ai-toolkit-flux3/ui
+Environment=PATH=/home/chris/.nvm/versions/node/v20.19.6/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TOOLKIT_ROOT=/home/chris/projects/ai-toolkit-flux3
+Environment=AITK_JOB_LAUNCHER=/home/chris/projects/ai-toolkit-flux3/ui_job_spark.sh
+ExecStart=/home/chris/.nvm/versions/node/v20.19.6/bin/npm run start
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

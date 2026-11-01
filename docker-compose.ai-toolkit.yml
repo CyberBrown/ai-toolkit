@@ -18,6 +18,10 @@ services:
       - /home/chris/ComfyUI/models:/workspace/comfy_models:ro
       # Output
       - ./output:/workspace/ai-toolkit/output
+      # Same paths as the host, so configs written by the UI (absolute host paths for
+      # datasets, output, sqlite db, ComfyUI models) resolve unchanged in here.
+      - ./:/home/chris/projects/ai-toolkit-flux3
+      - /home/chris/ComfyUI/models:/home/chris/ComfyUI/models:ro
     ipc: host
     ulimits:
       memlock: -1
@@ -36,6 +40,11 @@ services:
       - OPENBLAS_NUM_THREADS=8
       - NUMEXPR_NUM_THREADS=8
       - TOKENIZERS_PARALLELISM=false
+      # UI job plumbing (ui_job_status.py); left unset for CLI runs, which is what
+      # tells the trainer it is not a UI job.
+      - AITK_JOB_ID
+      - IS_AI_TOOLKIT_UI
+      - HF_TOKEN
     cap_add:
       - SYS_PTRACE          # allow py-spy to dump the stack if it still hangs
     deploy:
@@ -50,7 +59,11 @@ services:
         set -e &&
         apt-get update && apt-get install -y libgl1 libglib2.0-0t64 libopenblas-dev --no-install-recommends &&
         pip install -q -r requirements_nodeps.txt &&
-        python run.py ${CONFIG_FILE:-config/train_config.yaml}
+        set +e;
+        python run.py ${CONFIG_FILE:-config/train_config.yaml};
+        rc=$$?;
+        chown -R 1000:1000 /workspace/ai-toolkit/output /workspace/ai-toolkit/aitk_db.db* 2>/dev/null;
+        exit $$rc
       "
     tty: true
     stdin_open: true
