@@ -22,7 +22,30 @@ if [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null || echo 
   exit 1
 fi
 
-./train_spark.sh "$CONFIG" - "${AITK_CLAIM_GB:-50}"
+# API captioners run their model in a gateway service: no claim (it would block or evict that
+# very service) and no quiescing. They get the gateway token as AITK_CAPTION_API_KEY, but only
+# when the job's api_base is the gateway itself: the UI has no login, so anyone on the tailnet
+# could otherwise point api_base at their own host and collect the token.
+GATEWAY_API_BASE="http://host.docker.internal:8080/v1"
+job="$(python3 - "$CONFIG" <<'PY'
+import json, sys
+p = json.load(open(sys.argv[1]))["config"]["process"][0]
+print(p.get("type", ""), (p.get("caption") or {}).get("api_base", "").rstrip("/"))
+PY
+)" || { echo "cannot read job type from $CONFIG" >&2; exit 1; }
+read -r job_type api_base <<<"$job"
+
+if [ "$job_type" = "OpenAICaptioner" ]; then
+  if [ -z "${api_base:-}" ] || [ "$api_base" = "$GATEWAY_API_BASE" ]; then
+    AITK_CAPTION_API_KEY="$(grep -m1 -oP '(?<=^GATEWAY_API_TOKEN=).*' "$HOME/projects/gateway/.env" || true)"
+    AITK_CAPTION_API_KEY="$(printf '%s' "$AITK_CAPTION_API_KEY" | tr -d '\r"'"'"'')"
+    [ -n "$AITK_CAPTION_API_KEY" ] || { echo "no GATEWAY_API_TOKEN in ~/projects/gateway/.env" >&2; exit 1; }
+    export AITK_CAPTION_API_KEY
+  fi
+  TRAIN_QUIESCE="" ./train_spark.sh "$CONFIG" - 0
+else
+  ./train_spark.sh "$CONFIG" - "${AITK_CLAIM_GB:-50}"
+fi
 # Pin to this job's container: the name is reused by the next job.
 CID="$(docker inspect -f '{{.Id}}' "$CONTAINER")"
 

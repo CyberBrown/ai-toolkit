@@ -188,13 +188,19 @@ DATASET_PATH="$DATASET" CONFIG_FILE="$CONFIG" \
 
 CID="$(docker inspect -f '{{.Id}}' "$CONTAINER")"
 
-# 3. place the GPU claim
-echo "==> placing GPU claim (${VRAM_GB}GB, priority 0) on $CONTAINER"
-resp="$(gw POST /gpu/claim \
-  "{\"name\":\"training\",\"vram_gb\":$VRAM_GB,\"container\":\"$CONTAINER\",\"priority\":0}")"
-echo "    $resp"
-CLAIM_ID="$(printf '%s' "$resp" | grep -oP '(?<="id":")[^"]+' | head -1)"
-[ -n "$CLAIM_ID" ] || CLAIM_ID="-"
+# 3. place the GPU claim (vram_gb 0 = none: the job's GPU work happens in a gateway
+#    service that is already accounted for, e.g. an API captioner)
+if [ "$VRAM_GB" = "0" ]; then
+  echo "==> no GPU claim (vram_gb 0)"
+  CLAIM_ID="-"
+else
+  echo "==> placing GPU claim (${VRAM_GB}GB, priority 0) on $CONTAINER"
+  resp="$(gw POST /gpu/claim \
+    "{\"name\":\"training\",\"vram_gb\":$VRAM_GB,\"container\":\"$CONTAINER\",\"priority\":0}")"
+  echo "    $resp"
+  CLAIM_ID="$(printf '%s' "$resp" | grep -oP '(?<="id":")[^"]+' | head -1)"
+  [ -n "$CLAIM_ID" ] || CLAIM_ID="-"
+fi
 
 trap - ERR
 
@@ -203,10 +209,16 @@ setsid nohup "$(readlink -f "$0")" --supervise "$CID" "$CLAIM_ID" "${RESTORE[@]:
   >>"$LOG" 2>&1 < /dev/null &
 disown || true
 
+if [ "$CLAIM_ID" = "-" ]; then
+  CLAIM_LINE="no GPU claim (vram_gb $VRAM_GB)"
+else
+  CLAIM_LINE="GPU claim ${VRAM_GB}GB P0 (id=$CLAIM_ID) — registered GPU services blocked/evicted"
+fi
+
 cat <<EOF
 
-Training is running with all three protections in place.
-  - GPU claim ${VRAM_GB}GB P0 (id=$CLAIM_ID) — registered GPU services blocked/evicted
+Training is running with these protections in place.
+  - $CLAIM_LINE
   - quiesced: ${QUIESCE:-none}   (restored automatically on exit: ${RESTORE[*]:-none})
   - OOM shield: oom_score_adj=$OOM_ADJ on training pids, reapplied every 20s
   - supervisor log: $LOG
@@ -214,9 +226,12 @@ Training is running with all three protections in place.
   watch:   docker logs -f $CONTAINER
   claims:  curl -s ${auth[*]:+-H 'Authorization: Bearer ***'} $GW/gpu/claims
   abort:   docker stop $CONTAINER   (supervisor restores everything)
+EOF
 
+case " $QUIESCE " in *" ollama "*) cat <<EOF
 NOTE: quiescing ollama means chat/RAG on this box is DOWN for the run's duration.
       That is the point — an unaccounted ollama model load is what killed
       LL-5bf2a798. The durable fix is a realistic gateway.vram on the ollama
       container (see the header comment).
 EOF
+;; esac

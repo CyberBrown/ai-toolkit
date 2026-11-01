@@ -180,6 +180,31 @@ export const captionerTypes: CaptionOption[] = [
         ],
     },
     {
+        // model runs in a Spark gateway service (vLLM); api_base / api_key_env / temperature
+        // can be overridden in the advanced JSON
+        name: 'OpenAICaptioner',
+        label: 'Gateway API (Gemma 4)',
+        group: 'image',
+        noCompile: true,
+        defaults: {
+            'config.process[0].caption.model_name_or_path': ['gemma4-heretic-nvfp4', defaultNameOrPath],
+            'config.process[0].caption.extensions': [extensionsImage, defaultExtensions],
+            'config.process[0].caption.caption_prompt': [defaultImageCaptionPrompt, undefined],
+            'config.process[0].caption.max_res': [768, undefined],
+            'config.process[0].caption.max_new_tokens': [200, undefined],
+        },
+        name_or_path_options: [
+            { value: 'gemma4-heretic-nvfp4', label: 'gemma4-heretic-nvfp4 (agent-heretic-nvfp4)' },
+        ],
+        additionalSections: [
+            'caption.caption_prompt',
+            'caption.system_prompt',
+            'caption.max_res',
+            'caption.max_new_tokens',
+            'caption.thinking',
+        ],
+    },
+    {
         name: 'Qwen3OmniCaptioner',
         label: 'Qwen3-Omni',
         group: 'image/video/sound',

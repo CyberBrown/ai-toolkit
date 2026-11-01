@@ -45,6 +45,14 @@ services:
       - AITK_JOB_ID
       - IS_AI_TOOLKIT_UI
       - HF_TOKEN
+      # gateway token for OpenAICaptioner jobs aimed at the gateway; only ui_job_spark.sh sets it
+      - AITK_CAPTION_API_KEY
+    # the Spark gateway (:8080 on the host) for OpenAICaptioner
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # docker stop: the TERM trap turns it into SIGINT so the trainer stops cleanly and the
+    # chown below still runs; give it time before docker falls back to SIGKILL
+    stop_grace_period: 90s
     cap_add:
       - SYS_PTRACE          # allow py-spy to dump the stack if it still hangs
     deploy:
@@ -60,9 +68,12 @@ services:
         apt-get update && apt-get install -y libgl1 libglib2.0-0t64 libopenblas-dev --no-install-recommends &&
         pip install -q -r requirements_nodeps.txt &&
         set +e;
-        python run.py ${CONFIG_FILE:-config/train_config.yaml};
-        rc=$$?;
-        chown -R 1000:1000 /workspace/ai-toolkit/output /workspace/ai-toolkit/aitk_db.db* 2>/dev/null;
+        python run.py ${CONFIG_FILE:-config/train_config.yaml} &
+        pid=$$!;
+        trap 'kill -INT $$pid' TERM;
+        wait $$pid; rc=$$?;
+        if [ $$rc -gt 128 ]; then wait $$pid; rc=$$?; fi;
+        chown -R 1000:1000 /workspace/ai-toolkit/output /workspace/ai-toolkit/datasets /workspace/ai-toolkit/aitk_db.db* 2>/dev/null;
         exit $$rc
       "
     tty: true

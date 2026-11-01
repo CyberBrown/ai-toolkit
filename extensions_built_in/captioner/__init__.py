@@ -85,6 +85,18 @@ class Ideogram4CaptionerExtension(Extension):
         return Ideogram4Captioner
 
 
+class OpenAICaptionerExtension(Extension):
+    uid = "OpenAICaptioner"
+    name = "OpenAI-compatible API Captioner"
+
+    @classmethod
+    def get_process(cls):
+        # import your process class here so it is only loaded when needed and return it
+        from .OpenAICaptioner import OpenAICaptioner
+
+        return OpenAICaptioner
+
+
 AI_TOOLKIT_EXTENSIONS = [
     AceStepCaptionerExtension,
     MossMusicCaptionerExtension,
@@ -93,4 +105,5 @@ AI_TOOLKIT_EXTENSIONS = [
     Qwen25OmniCaptionerExtension,
     Qwen38CaptionerExtension,
     Ideogram4CaptionerExtension,
+    OpenAICaptionerExtension,
 ]
