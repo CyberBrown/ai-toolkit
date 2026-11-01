@@ -1,5 +1,9 @@
 from .chroma import ChromaModel, ChromaRadianceModel
-from .hidream import HidreamModel, HidreamE1Model
+try:
+    from .hidream import HidreamModel, HidreamE1Model
+except Exception as _e:  # transformers-pin mismatch on GB10
+    print(f"[diffusion_models] skipping: {_e}")
+    HidreamModel = HidreamE1Model = None
 from .f_light import FLiteModel
 from .omnigen2 import OmniGen2Model
 from .flux_kontext import FluxKontextModel
@@ -9,11 +13,19 @@ from .qwen_image_2 import QwenImage2Model
 from .ming_image import MingImageModel
 from .flux2 import Flux2Model, Flux2Klein4BModel, Flux2Klein9BModel
 from .z_image import ZImageModel
-from .ltx2 import LTX2Model, LTX23Model, LTX25Model
+try:
+    from .ltx2 import LTX2Model, LTX23Model, LTX25Model
+except Exception as _e:  # needs newer diffusers than the GB10 pin
+    print(f"[diffusion_models] skipping: {_e}")
+    LTX2Model = LTX23Model = LTX25Model = None
 from .zeta_chroma import ZetaChromaModel
 from .ernie_image import ErnieImageModel
 from .nucleus_image import NucleusImageModel
-from .hidream.hidream_o1_model import HidreamO1Model
+try:
+    from .hidream.hidream_o1_model import HidreamO1Model
+except Exception as _e:  # transformers-pin mismatch on GB10
+    print(f"[diffusion_models] skipping: {_e}")
+    HidreamO1Model = None
 from .z_image.z_image_l2p_model import ZImageL2PModel
 from .anima import AnimaModel
 from .ideogram4 import Ideogram4Model
@@ -73,3 +85,5 @@ AI_TOOLKIT_MODELS = [
     MossImageModel,
     Fibo2Model,
 ]
+
+AI_TOOLKIT_MODELS = [m for m in AI_TOOLKIT_MODELS if m is not None]

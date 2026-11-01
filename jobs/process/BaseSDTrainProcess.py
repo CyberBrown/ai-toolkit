@@ -2186,7 +2186,7 @@ class BaseSDTrainProcess(BaseTrainProcess):
             if load_optimizer:
                 try:
                     print_acc(f"Loading optimizer state from {optimizer_state_file_path}")
-                    optimizer_state_dict = torch.load(optimizer_state_file_path, weights_only=True)
+                    optimizer_state_dict = torch.load(optimizer_state_file_path, weights_only=False)
                     optimizer.load_state_dict(optimizer_state_dict)
                     del optimizer_state_dict
                     flush()

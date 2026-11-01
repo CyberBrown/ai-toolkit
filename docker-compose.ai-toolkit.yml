@@ -14,6 +14,8 @@ services:
       - ${DATASET_PATH:-./dataset}:/workspace/dataset
       # Local model checkpoints (ComfyUI's krea2 bf16 checkpoints, reference key naming)
       - /home/chris/ComfyUI/models/diffusion_models:/workspace/models:ro
+      # Whole ComfyUI models tree as MODELS_PATH (flux3 resolves vae/ and text_encoders/ there)
+      - /home/chris/ComfyUI/models:/workspace/comfy_models:ro
       # Output
       - ./output:/workspace/ai-toolkit/output
     ipc: host
@@ -23,6 +25,9 @@ services:
     shm_size: '16gb'
     environment:
       - HF_HOME=/root/.cache/huggingface
+      - MODELS_PATH=/workspace/comfy_models
+      # GB10 unified-pool fragmentation guard (step1x precedent; pilot OOM 08-06)
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True,garbage_collection_threshold:0.8
       - TORCH_CUDA_ARCH_LIST=10.0
       # Cap CPU thread pools: on the 20-core Grace box the training-loop startup
       # was spinning 63 threads at 100%% CPU / 0%% GPU and never reaching step 1.
