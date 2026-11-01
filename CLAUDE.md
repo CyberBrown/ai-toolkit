@@ -5,7 +5,7 @@ Training runs in the `ai-toolkit-training` container, always started by `train_s
 the `train` service directly.
 
 - **CLI:** `./train_spark.sh config/<name>.yaml <dataset_dir> [claim_gb]` from this dir.
-- **Web UI:** host-native user service `ai-toolkit-ui.service` (copy in this repo; install to
+- **Web UI:** `ai-toolkit-ui [stop|status|logs|rebuild]` (linked into `~/bin`, listed by `spark-help`); host-native user service `ai-toolkit-ui.service` (copy in this repo; install to
   `~/.config/systemd/user/`), `http://prometheus-spark:8675`. Build: `cd ui && npm install &&
   npx prisma generate && npx prisma db push && npm run build`. `AITK_JOB_LAUNCHER=ui_job_spark.sh`
   makes the worker start jobs through `train_spark.sh` instead of a host python. The compose

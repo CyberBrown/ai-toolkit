@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Start/stop the ai-toolkit LoRA training UI (:8675); its jobs run via train_spark.sh.
+#
+#   ai-toolkit-ui            start (if needed), wait for it to answer, print the URL
+#   ai-toolkit-ui stop       stop the UI (a running training job keeps going; abort it with
+#                            docker stop ai-toolkit-training)
+#   ai-toolkit-ui status     unit state + any training job in flight
+#   ai-toolkit-ui logs       follow the UI/worker log
+#   ai-toolkit-ui rebuild    rebuild after a git pull/merge (npm install, prisma, next build), restart
+#
+# The UI itself uses no GPU, so it is a host user unit, not a gateway service.
+set -euo pipefail
+
+UNIT=ai-toolkit-ui.service
+PORT=8675
+URL="http://prometheus-spark:${PORT}"
+REPO="$(dirname "$(readlink -f "$0")")"
+
+case "${1:-up}" in
+  up)
+    systemctl --user start "$UNIT"
+    echo -n "Waiting for the UI on :${PORT} "
+    for _ in $(seq 1 30); do
+      if curl -sf --max-time 2 "http://localhost:${PORT}/api/jobs" >/dev/null 2>&1; then
+        echo
+        echo "ai-toolkit UI is up → ${URL}"
+        exit 0
+      fi
+      echo -n .
+      sleep 2
+    done
+    echo
+    echo "Timed out after 60s. Check: ai-toolkit-ui logs" >&2
+    exit 1
+    ;;
+  stop)
+    exec systemctl --user stop "$UNIT"
+    ;;
+  status)
+    systemctl --user --no-pager status "$UNIT" | head -5
+    docker ps --filter name=ai-toolkit-training --format 'training container: {{.Status}}' | grep . || echo "training container: not running"
+    ;;
+  logs)
+    exec journalctl --user -u "$UNIT" -f
+    ;;
+  rebuild)
+    cd "$REPO/ui"
+    npm install --no-audit --no-fund
+    git -C "$REPO" checkout -- ui/package-lock.json 2>/dev/null || true
+    npx prisma generate && npx prisma db push && npm run build
+    systemctl --user restart "$UNIT"
+    echo "rebuilt and restarted → ${URL}"
+    ;;
+  *)
+    sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+    exit 1
+    ;;
+esac
